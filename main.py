@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, escape,session
 from panic import vovels
-from DBcm import UseDataBase
+from DBcm import UseDataBase, ConnectionError, CredentialsError
 from checker import check_logged_in
 
 app = Flask(__name__)
@@ -42,7 +42,10 @@ def do_search()->str:
     letters = request.form['letters']
     title = 'Here are your results:'
     results = vovels(phrase,letters)
-    log_request(request,results)
+    try:
+        log_request(request,results)
+    except Exception as err:
+        print('error: ',str(err))
     return render_template('results.html',the_phrase=phrase,
                            the_letters = letters,
                            the_title=title,
@@ -56,16 +59,25 @@ def entry_page()->'html':
 @app.route('/viewlog')
 @check_logged_in
 def view()->'html':
-    with UseDataBase(app.config['dbconfig']) as cursor:
-       _sql = """select phrase, letters, ip, browser_string, results from log"""
-       cursor.execute(_sql)
-       content = cursor.fetchall()
-    titles = ('Phrase', 'Letters', 'Remote_addr','User_agent', 'Results')
-    return render_template('viewlog.html',
-                            the_title = 'View_log',
-                            the_row_titles = titles,
-                            the_data = content,)
+    try: 
+        with UseDataBase(app.config['dbconfig']) as cursor:
+            _sql = """select phrase, letters, ip, browser_string, results from log"""
+            cursor.execute(_sql)
+            content = cursor.fetchall()
+            titles = ('Phrase', 'Letters', 'Remote_addr','User_agent', 'Results')
+        return render_template('viewlog.html',
+                                the_title = 'View_log',
+                                the_row_titles = titles,
+                                the_data = content,)
+    except ConnectionError as err:
+        print('Error with DB: ',str(err))
+    except CredentialsError as err:
+        print("Credentials are not right: ",str(err))
+    except Exception as err:
+        print("Error: ",str(err))
+    return 'Error'
    
+
 app.secret_key = 'YouWillNeverGuessMySecretKey'         
 
 if __name__=="__main__":
