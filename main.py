@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, escape,session
 from panic import vovels
-from DBcm import UseDataBase, ConnectionError, CredentialsError
+from DBcm import UseDataBase, ConnectionError, CredentialsError, SQLError
 from checker import check_logged_in
 
 app = Flask(__name__)
@@ -72,7 +72,9 @@ def view()->'html':
     except ConnectionError as err:
         print('Error with DB: ',str(err))
     except CredentialsError as err:
-        print("Credentials are not right: ",str(err))
+        print("Credentials are not right:",str(err))
+    except SQLError as err:
+        print('Is your query correct? error:',str(err))
     except Exception as err:
         print("Error: ",str(err))
     return 'Error'
