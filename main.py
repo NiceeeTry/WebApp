@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, escape,session
 from panic import vovels
 from DBcm import UseDataBase, ConnectionError, CredentialsError, SQLError
 from checker import check_logged_in
+from threading import Thread
+from flask import copy_current_request_context
 
 app = Flask(__name__)
 
@@ -23,27 +25,31 @@ def do_logout()->str:
     return 'You are now logged out.'
 
 
-def log_request(req:'flask_request', res:str)->None:
-    # with open('vsearch.log','a') as log:
-    #     print(req.form, req.remote_addr, req.user_agent, res, file=log, sep='|')
-    with UseDataBase(app.config['dbconfig']) as cursor:
-        _sql = """insert into log
-            (phrase,letters,ip,browser_string, results)
-            values
-            (%s,%s,%s,'Chrome',%s)"""
-        cursor.execute(_sql,(req.form['phrase'],
-                             req.form['letters'],
-                             req.remote_addr,
-                             res))
-
 @app.route('/search4', methods=['POST'])
 def do_search()->str:
+    
+    @copy_current_request_context
+    def log_request(req:'flask_request', res:str)->None:
+        # with open('vsearch.log','a') as log:
+        #     print(req.form, req.remote_addr, req.user_agent, res, file=log, sep='|')
+        with UseDataBase(app.config['dbconfig']) as cursor:
+            _sql = """insert into log
+                (phrase,letters,ip,browser_string, results)
+                values
+                (%s,%s,%s,'Chrome',%s)"""
+            cursor.execute(_sql,(req.form['phrase'],
+                                req.form['letters'],
+                                req.remote_addr,
+                                res))
+    
     phrase = request.form['phrase']
     letters = request.form['letters']
     title = 'Here are your results:'
     results = vovels(phrase,letters)
     try:
-        log_request(request,results)
+        t = Thread(target=log_request,args=(request,results))
+        t.start()
+        # log_request(request,results)
     except Exception as err:
         print('error: ',str(err))
     return render_template('results.html',the_phrase=phrase,
